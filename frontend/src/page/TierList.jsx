@@ -5,8 +5,10 @@ import {
  pointerWithin,
  PointerSensor,
  useSensor,
+ rectIntersection,
  useSensors,
  useDroppable,
+ DragOverlay
 } from '@dnd-kit/core';//드래그앤드롭이벤트 키트 라이브러리
 import { 
     SortableContext,
@@ -33,6 +35,8 @@ function TierList() {
     const [position,setPosition] = useState("");
     //티어 정보                        기본값 설정
     const [tiers,setTiers] = useState(initialTiers);
+    //움직이는 컴포넌트
+    const [activeId, setActiveId] = useState(null);
 
     
     // 마우스 포인터 감지 센서 설정
@@ -54,8 +58,12 @@ function TierList() {
     const haldlerDragEnd = (event) => {
         //active : 드래그한 아이템,over : 드롭한 대상
         const {active,over} = event;
-        
         if(!over) return;
+
+          if (over?.id === 'pool') {
+        console.log("Pool에 드롭됨");
+        // Pool에 드롭 시 로직 작성
+    }
 
         const draggedId = active.id; //드래그한 챔피언 id
         const targetId = over.id; // 드롭 대상 id
@@ -181,11 +189,10 @@ function TierList() {
         setPosition(position)
     }    
 
-    const { setPoolRef, isPoolOver } = useDroppable({ id: 'pool' });
 
     return (
         <div>
-            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={haldlerDragEnd}>    
+            <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragEnd={(event) => {haldlerDragEnd(event); setActiveId(null);}} onDragStart={(event) => setActiveId(event.active.id)}>    
                 <div style={{display : "flex",flexDirection : "column",width:"88vw",paddingBottom : "2vh",justifyContent:"center",alignItems:"center"}}>
                     <div>
                         {tiers.map(tier => <Tier key={tier.id} tier={tier} />)}
@@ -199,18 +206,50 @@ function TierList() {
                         <button style={{all:"unset",border : "1px solid #000",borderRadius : "3px",width : "9.3vw",height:"3vh",textAlign:"center",backgroundColor : position === "Marksman" ?  "#565666" : "#23272B",color:"#ffffffb7",cursor:"pointer" }}onClick={()=>{searchPosition("Marksman")}}>원딜</button>
                         <button style={{all:"unset",border : "1px solid #000",borderRadius : "3px",width : "9.3vw",height:"3vh",textAlign:"center",backgroundColor : position === "Support" ?  "#565666" : "#23272B",color:"#ffffffb7",cursor:"pointer" }}onClick={()=>{searchPosition("Support")}}>서포터</button>
                     </div>
-                    <div ref={setPoolRef} style={{  border: isPoolOver ? '2px solid blue' : '1px solid gray', width: "70vw", minHeight: "20vh", padding: 8 }}>
-                        <SortableContext items={champData.map((i)=>(i.id))} strategy={verticalListSortingStrategy}>
-                            {champData.map((item,index)=>(
-                                <SortableImgae key={item.id} id={item.id} url={`https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${item.id}.png`}></SortableImgae>
-                            ))}
-                        </SortableContext>
-                    </div>
+                    <Pool champData={champData}></Pool>
                 </div>  
+
+                
+                <DragOverlay>
+                    {activeId ? (
+                    <img
+                        src={`https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${activeId}.png`}
+                        alt={activeId}
+                        style={{
+                        width: 80,
+                        height: 80,
+                        cursor: 'grabbing',
+                        pointerEvents: 'none', // 드래그 방해 방지
+                        }}
+                    />
+                    ) : null}
+                </DragOverlay>
             </DndContext>
         </div>
     )
 }
+
+
+
+
+
+
+function Pool({champData}){
+    
+    const { setNodeRef, isPoolOver } = useDroppable({ id: 'pool' });
+    
+    return (
+        <div ref={setNodeRef} style={{  boxSizing: "border-box", border: isPoolOver ? '2px solid blue' : '1px solid gray', width: "70vw", minHeight: "20vh", padding: "2vh" }}>
+            <SortableContext items={champData.map((i)=>(i.id))} strategy={verticalListSortingStrategy}>
+                {champData.map((item,index)=>(
+                    <SortableImgae key={item.id} id={item.id} url={`https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${item.id}.png`}></SortableImgae>
+                ))}
+            </SortableContext>
+        </div>
+    )
+}
+
+
 
 
 
@@ -251,7 +290,7 @@ function SortableImgae({id,url}) {                                              
         height: 80,
     }
         return (
-        <image
+        <img
         ref={setNodeRef} //dnd-kit에게 실제로 추적해야할 dom요소를  알려주는 역활 react 는 직접 실제dom을 이용하지않으니 이렇게 ref를 통해 알려줌
         {...attributes} //드래그 동작을 위해 필요한 속성들을 넣어준다
         {...listeners} //마우스 이벤트를 등록 있어야 드래그가 작동
